@@ -1,6 +1,7 @@
 import numpy as np
 from Positional_Analysis import positional_analysis
 from Velocity_Analysis import velocity_analysis
+import parameters as params
 
 
 
@@ -20,7 +21,7 @@ for t[i] in t:
     
     # Perform velocity analysis
     omega2 = 1.0  # Angular velocity of the crank (rad/s)
-    omega3, omega4 = velocity_analysis(theta2, theta3, theta4, omega2, pos_out)
+    omega3, omega4 = velocity_analysis(theta2, theta3, theta4, pos_in, pos_out)
     
     # Print results for the current time step
     print(f"Time: {t[i]:.2f} s, Input Angle: {np.degrees(theta2):.2f} degrees, "

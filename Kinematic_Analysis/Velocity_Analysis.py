@@ -42,3 +42,15 @@ def velocity_analysis(theta2, theta3, theta4, pos_in, pos_out):
     omega4 = (L1 * sin_theta4) / (L3 * sin_theta3)
     
     return omega3, omega4
+
+
+if __name__ == "__main__":
+    # Example usage
+    theta2 = np.radians(30)  # Input angle in radians
+    theta3 = np.radians(45)  # Output angle of the coupler in radians
+    theta4 = np.radians(60)  # Output angle of the follower in radians
+    pos_in = [1.0, 0.0]      # Input position (x, y)
+    pos_out = [2.0, 1.0]     # Output position (x, y)
+    
+    omega3, omega4 = velocity_analysis(theta2, theta3, theta4, pos_in, pos_out)
+    print(f"Angular velocities: omega3 = {omega3:.2f} rad/s, omega4 = {omega4:.2f} rad/s")
