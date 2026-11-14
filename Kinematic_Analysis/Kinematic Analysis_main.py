@@ -1,7 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from Positional_Analysis import positional_analysis
-from Velocity_Analysis import velocity_analysis
 from parameters import parameters
 
 def energy_at_deflection(theta, values):
