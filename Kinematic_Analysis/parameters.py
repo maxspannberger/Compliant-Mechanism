@@ -1,29 +1,50 @@
 import numpy as np
 
-flex_length=0.09 #flexure length in m
-m_2=0.05 #mass of the payload in kg, assumed for now
-h=0.3 #height of the jump in m
-g=9.81 #acceleration due to gravity in m/s^2
-init_angle=[10,15,20,25] #assumed inital deflection of the flexure in degrees
-density=8000 #density of the flexure material in kg/m^3 - FIND THE VALUES FOR STEEL
 
-thickness = [0.0005, 0.001, 0.0015] #thickness of the flexure in m
-width = [0.005, 0.01, 0.015] #width of the flexure in m
+def parameters():
 
-dict_flexure = {}
+    tot_flex_length=0.09 #flexure length in m
+    flex_length_initial=tot_flex_length/2 #initial flexure length in m
+    m_2=0.05 #mass of the payload in kg, assumed for now
+    h=0.3 #height of the jump in m
+    g=9.81 #acceleration due to gravity in m/s^2
+    gamma=0.85 #fixed-guided boundary condition
+    K_Theta=2.65    #fixed-guided boundary condition
+    init_angle=[10,15,20,25] #assumed inital deflection of the flexure in degrees
+    density=8000 #density of the flexure material in kg/m^3 - FIND THE VALUES FOR STEEL
 
-# Add one dictionary entry for every thickness and width combination.
-for tick in thickness:
-    for wid in width:
-        for angle in init_angle:
-            m_1=density*tick*wid*flex_length
-            stored_energy=h*(m_1+m_2)**2*g/(m_2*np.sin(np.radians(angle))**2)
-            dict_flexure[(wid, tick, angle)] = {
-                'flex_length': flex_length,
-                'init_angle': angle,
-                'thickness': tick,
-                'width': wid,
-                'energy_stored': stored_energy,
-            }
+    thickness = [0.0005, 0.001, 0.0015] #thickness of the flexure in m
+    width = [0.005, 0.01, 0.015] #width of the flexure in m
 
-print(dict_flexure)
+    dict_flexure = {}
+
+    # Add one dictionary entry for every thickness and width combination.
+    for tick in thickness:
+        for wid in width:
+            for angle in init_angle:
+                m_1=density*tick*wid*flex_length_initial #mass of the flexure in kg
+                stored_energy=h*(m_1+m_2)**2*g/(m_2*np.sin(np.radians(angle))**2)
+                flex_length_deformed=flex_length_initial*np.cos(np.radians(angle))
+                d=flex_length_deformed-flex_length_initial
+                A=wid*tick
+                I=wid*tick**3/12
+                E=205*10**9 #Pa, Young's modulus of spring steel apparently from 200 to 210 GPa
+                dict_flexure[(wid, tick, angle)] = {
+                    'flex_length_initial': flex_length_deformed,
+                    'init_angle': np.radians(angle),
+                    'gamma': gamma,
+                    'K_Theta': K_Theta,
+                    'thickness': tick,
+                    'width': wid,
+                    'pre_load_displacement':d,
+                    'energy_total': stored_energy,
+                    'E':E,
+                    'A':A,
+                    'I':I
+                }
+
+    return dict_flexure
+
+if __name__ == "__main__":
+    dict_flexure = parameters()
+    print(dict_flexure)

@@ -1,32 +1,188 @@
 import numpy as np
+import matplotlib.pyplot as plt
 from Positional_Analysis import positional_analysis
 from Velocity_Analysis import velocity_analysis
-import parameters as params
+from parameters import parameters
+
+def energy_at_deflection(theta, values):
+    """Return axial, bending, and total strain energy at ``theta``."""
+    flex_length_initial = values['flex_length_initial']
+    gamma = values['gamma']
+    E = values['E']
+    A = values['A']
+    I = values['I']
+    K_Theta = values['K_Theta']
+
+    L_prime_initial = flex_length_initial * gamma
+    displacement_vertical=flex_length_initial * (1-np.cos(theta))
+    flex_length_deformed = flex_length_initial -displacement_vertical
+    L_diagonal=flex_length_deformed-(1-gamma)*flex_length_initial
+    u=L_diagonal*np.sin(theta)
+    L_prime_deformed = np.sqrt(
+        u ** 2
+        + (
+            (gamma*2*flex_length_initial-displacement_vertical)
+            / 2
+        ) ** 2
+    )
+    axial_displacement = L_prime_deformed - L_prime_initial
+
+    k_l = E * A / L_prime_initial
+    axial_energy = 0.5 * k_l * axial_displacement ** 2
+
+    k_theta = 2 * gamma * K_Theta * E * I / (flex_length_initial)
+    bending_energy = 2 * 0.5 * k_theta * theta ** 2
+
+    return axial_energy, bending_energy, axial_energy + bending_energy
 
 
+def find_deflection_angle(values, theta_limit=np.radians(50), samples=1000):
+    """Solve total strain energy(theta) = required energy."""
+    target_energy = values['energy_total']
+    theta_grid = np.linspace(0.0, theta_limit, samples + 1)
+    energy_grid = np.array(
+        [energy_at_deflection(theta, values)[2] for theta in theta_grid]
+    )
+    residual_grid = energy_grid - target_energy
 
-t=np.linspace(0, 2 * np.pi, 100)  # Time array for one full rotation
-theta2lst = np.linspace(0, 2 * np.pi, 100)  # Input angle array (in radians)
-i=0  # Index for the current time step
+    for index in range(samples):
+        if residual_grid[index] == 0:
+            theta = theta_grid[index]
+            break
+        if residual_grid[index] * residual_grid[index + 1] >0:
+            continue
 
-for t[i] in t:
-    theta2 = theta2lst[i]  # Input angle (in radians)
-    
-    # Define input and output positions based on the current input angle
-    pos_in = [np.cos(theta2), np.sin(theta2)]  # Input position (x, y)
-    pos_out = [np.cos(theta2 + np.pi / 4), np.sin(theta2 + np.pi / 4)]  # Output position (x, y)
-    
-    # Perform positional analysis
-    theta3, theta4 = positional_analysis(theta2, pos_in, pos_out)
-    
-    # Perform velocity analysis
-    omega2 = 1.0  # Angular velocity of the crank (rad/s)
-    omega3, omega4 = velocity_analysis(theta2, theta3, theta4, pos_in, pos_out)
-    
-    # Print results for the current time step
-    print(f"Time: {t[i]:.2f} s, Input Angle: {np.degrees(theta2):.2f} degrees, "
-          f"Output Angles: theta3 = {np.degrees(theta3):.2f} degrees, "
-          f"theta4 = {np.degrees(theta4):.2f} degrees, "
-          f"Angular Velocities: omega3 = {omega3:.2f} rad/s, omega4 = {omega4:.2f} rad/s")
-    
-    i += 1  # Increment index for the next time step
+        lower = theta_grid[index]
+        upper = theta_grid[index + 1]
+        for _ in range(60):
+            midpoint = (lower + upper) / 2
+            midpoint_residual = (
+                energy_at_deflection(midpoint, values)[2] - target_energy
+            )
+            if residual_grid[index] * midpoint_residual <= 0:
+                upper = midpoint
+            else:
+                lower = midpoint
+        theta = (lower + upper) / 2
+        break
+    else:
+        return None
+
+    axial_energy, bending_energy, total_energy = energy_at_deflection(
+        theta, values
+    )
+    return {
+        'deflection_angle': theta,
+        'axial_energy': axial_energy,
+        'bending_energy': bending_energy,
+        'total_energy': total_energy,
+        'energy_residual': total_energy - target_energy,
+    }
+
+
+def find_perfect_combination(parameters_dict):
+    best_combination = None
+    smallest_residual = float('inf')
+
+    for combination, values in parameters_dict.items():
+        result = find_deflection_angle(values)
+        print(result)
+        if result is None:
+            continue
+        residual = abs(result['energy_residual'])
+        if residual < smallest_residual:
+            smallest_residual = residual
+            best_combination = {
+                'combination': combination,
+                **result,
+            }
+
+    return best_combination
+
+
+def plot_deflection_angle_over_time(
+    parameters_dict, duration=2 * np.pi, samples=100
+):
+    """Plot angle during linear compression of the best combination."""
+    best_combination = find_perfect_combination(parameters_dict)
+    if best_combination is None:
+        raise ValueError(
+            'No parameter combination can store the required energy '
+            'within the deflection limit.'
+        )
+
+    values = parameters_dict[best_combination['combination']]
+    flex_length = values['flex_length_initial']
+    initial_angle = values['init_angle']
+    preload_displacement = abs(values['pre_load_displacement'])
+    maximum_angle = best_combination['deflection_angle']
+    maximum_vertical_displacement = flex_length * (1 - np.cos(maximum_angle))
+
+    time = np.linspace(0.0, duration, samples)
+    compression_displacement = np.linspace(
+        0.0, maximum_vertical_displacement, samples
+    )
+    compression_angle = np.arccos(
+        1 - compression_displacement / flex_length
+    )
+    deflection_angle = initial_angle + compression_angle
+    deflection_angle_degrees = np.degrees(deflection_angle)
+    vertical_displacement = (
+        preload_displacement + compression_displacement
+    )
+    flex_length_deformed = flex_length - compression_displacement
+    diagonal_length = (
+        flex_length_deformed
+        - (1 - values['gamma']) * flex_length
+    )
+    horizontal_displacement = diagonal_length * np.sin(compression_angle)
+    total_energy = np.array(
+        [
+            energy_at_deflection(angle, values)[2]
+            for angle in compression_angle
+        ]
+    )
+
+    figure, axes = plt.subplots(2, 2, figsize=(12, 8), sharex=True)
+    axes[0, 0].plot(time, deflection_angle_degrees, linewidth=2)
+    axes[0, 0].set_xlabel('Time (s)')
+    axes[0, 0].set_ylabel('Deflection angle (degrees)')
+    axes[0, 0].set_title('Deflection angle')
+    axes[0, 0].grid(True)
+
+    axes[0, 1].plot(time, total_energy, linewidth=2)
+    axes[0, 1].set_xlabel('Time (s)')
+    axes[0, 1].set_ylabel('Total energy (J)')
+    axes[0, 1].set_title('Total stored energy')
+    axes[0, 1].grid(True)
+
+    axes[1, 0].plot(time, vertical_displacement, linewidth=2)
+    axes[1, 0].set_xlabel('Time (s)')
+    axes[1, 0].set_ylabel('Vertical displacement (m)')
+    axes[1, 0].set_title('Vertical compression')
+    axes[1, 0].grid(True)
+
+    axes[1, 1].plot(time, horizontal_displacement, linewidth=2)
+    axes[1, 1].set_xlabel('Time (s)')
+    axes[1, 1].set_ylabel('Horizontal displacement (m)')
+    axes[1, 1].set_title('Horizontal displacement, u')
+    axes[1, 1].grid(True)
+
+    figure.suptitle(f"Compression response: {best_combination['combination']}")
+    figure.tight_layout()
+    plt.show()
+
+    best_combination['time'] = time
+    best_combination['vertical_displacement'] = vertical_displacement
+    best_combination['horizontal_displacement'] = horizontal_displacement
+    best_combination['deflection_angle_over_time'] = deflection_angle
+    best_combination['total_energy_over_time'] = total_energy
+    return best_combination
+
+
+if __name__ == '__main__':
+    result = plot_deflection_angle_over_time(parameters())
+    print(
+        f"Best combination: {result['combination']}, "
+        f"deflection angle: {np.degrees(result['deflection_angle']):.2f} degrees"
+    )
