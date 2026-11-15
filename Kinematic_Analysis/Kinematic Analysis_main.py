@@ -27,17 +27,27 @@ def energy_at_deflection(theta, values):
 
     k_l = E * A / L_prime_initial
     axial_energy = 0.5 * k_l * axial_displacement ** 2
+    Force_axial = (
+        axial_energy / axial_displacement
+        if axial_displacement != 0
+        else 0.0
+    )
 
     k_theta = 2 * gamma * K_Theta * E * I / (flex_length_initial)
     bending_energy = 2 * 0.5 * k_theta * theta ** 2
+    Force_bending = bending_energy / theta if theta != 0 else 0.0
+    Force_total =   Force_bending + values['preload_force']
 
-    return axial_energy, bending_energy, axial_energy + bending_energy
+    print(Force_axial, Force_bending, Force_total, axial_energy,axial_displacement,L_prime_initial,k_l)
+
+    return axial_energy, bending_energy, axial_energy + bending_energy, Force_total
 
 
 def find_deflection_angle(values, theta_limit=np.radians(50), samples=1000):
     """Solve total strain energy(theta) = required energy."""
     target_energy = values['energy_total']
-    theta_grid = np.linspace(0.0, theta_limit, samples + 1)
+    initial_angle = values['init_angle']
+    theta_grid = np.linspace(0.0, theta_limit-initial_angle, samples + 1)
     energy_grid = np.array(
         [energy_at_deflection(theta, values)[2] for theta in theta_grid]
     )
@@ -66,7 +76,7 @@ def find_deflection_angle(values, theta_limit=np.radians(50), samples=1000):
     else:
         return None
 
-    axial_energy, bending_energy, total_energy = energy_at_deflection(
+    axial_energy, bending_energy, total_energy, Force_total = energy_at_deflection(
         theta, values
     )
     return {
@@ -75,6 +85,7 @@ def find_deflection_angle(values, theta_limit=np.radians(50), samples=1000):
         'bending_energy': bending_energy,
         'total_energy': total_energy,
         'energy_residual': total_energy - target_energy,
+        'Force_total': Force_total,
     }
 
 
@@ -84,7 +95,6 @@ def find_perfect_combination(parameters_dict):
 
     for combination, values in parameters_dict.items():
         result = find_deflection_angle(values)
-        print(result)
         if result is None:
             continue
         residual = abs(result['energy_residual'])
@@ -92,10 +102,37 @@ def find_perfect_combination(parameters_dict):
             smallest_residual = residual
             best_combination = {
                 'combination': combination,
+                'preload_force': values['preload_force'],
                 **result,
             }
-
     return best_combination
+
+def dtheta_dy(theta, values):
+    """Return the derivative of deflection angle with respect to vertical displacement."""
+    flex_length_initial = values['flex_length_initial']
+    gamma = values['gamma']
+
+    flex_length_deformed = flex_length_initial * (1 - np.cos(theta))
+    L_diagonal = flex_length_deformed - (1 - gamma) * flex_length_initial
+    u = L_diagonal * np.sin(theta)
+    L_prime_deformed = np.sqrt(
+        u ** 2 + ((gamma * 2 * flex_length_initial - flex_length_deformed) / 2) ** 2
+    )
+
+    dL_diagonal_dtheta = (
+        flex_length_initial * np.sin(theta) + L_diagonal * np.cos(theta)
+    )
+    du_dtheta = dL_diagonal_dtheta * np.sin(theta) + L_diagonal * np.cos(theta)
+    dL_prime_deformed_dtheta = (
+        (u * du_dtheta + (gamma * 2 * flex_length_initial - flex_length_deformed) / 2 *
+         (-flex_length_initial * np.sin(theta))) / L_prime_deformed
+    )
+
+    dtheta_dy_value = (
+        -1 / (flex_length_initial * np.sin(theta)) *
+        (dL_prime_deformed_dtheta / L_prime_deformed)
+    )
+    return dtheta_dy_value
 
 
 def plot_deflection_angle_over_time(
@@ -140,8 +177,20 @@ def plot_deflection_angle_over_time(
             for angle in compression_angle
         ]
     )
+    Force_tot = np.array(
+        [
+            energy_at_deflection(angle, values)[3]
+            for angle in compression_angle
+        ]
+    )
+    dtheta_dy_over_time = np.array(
+        [
+            dtheta_dy(angle, values) if angle != 0 else np.nan
+            for angle in compression_angle
+        ]
+    )
 
-    figure, axes = plt.subplots(2, 2, figsize=(12, 8), sharex=True)
+    figure, axes = plt.subplots(2, 3, figsize=(16, 8), sharex=True)
     axes[0, 0].plot(time, deflection_angle_degrees, linewidth=2)
     axes[0, 0].set_xlabel('Time (s)')
     axes[0, 0].set_ylabel('Deflection angle (degrees)')
@@ -166,6 +215,18 @@ def plot_deflection_angle_over_time(
     axes[1, 1].set_title('Horizontal displacement, u')
     axes[1, 1].grid(True)
 
+    axes[0, 2].plot(time, Force_tot, linewidth=2)
+    axes[0, 2].set_xlabel('Time (s)')
+    axes[0, 2].set_ylabel('Force (N)')
+    axes[0, 2].set_title('Total force')
+    axes[0, 2].grid(True)
+
+    axes[1, 2].plot(time, dtheta_dy_over_time, linewidth=2)
+    axes[1, 2].set_xlabel('Time (s)')
+    axes[1, 2].set_ylabel('dtheta/dy (rad/m)')
+    axes[1, 2].set_title('Deflection angle sensitivity')
+    axes[1, 2].grid(True)
+
     figure.suptitle(f"Compression response: {best_combination['combination']}")
     figure.tight_layout()
     plt.show()
@@ -175,6 +236,8 @@ def plot_deflection_angle_over_time(
     best_combination['horizontal_displacement'] = horizontal_displacement
     best_combination['deflection_angle_over_time'] = deflection_angle
     best_combination['total_energy_over_time'] = total_energy
+    best_combination['Force_tot'] = Force_tot
+    best_combination['dtheta_dy_over_time'] = dtheta_dy_over_time
     return best_combination
 
 
@@ -182,5 +245,7 @@ if __name__ == '__main__':
     result = plot_deflection_angle_over_time(parameters())
     print(
         f"Best combination: {result['combination']}, "
-        f"deflection angle: {np.degrees(result['deflection_angle']):.2f} degrees"
+        f"deflection angle: {np.degrees(result['deflection_angle']):.2f} degrees, "
+        f"Pre load Force: {result['preload_force']:.2f} N,"
+        f"Total Force: {result['Force_total']:.2f} N"
     )

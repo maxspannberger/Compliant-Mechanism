@@ -29,6 +29,9 @@ def parameters():
                 A=wid*tick
                 I=wid*tick**3/12
                 E=205*10**9 #Pa, Young's modulus of spring steel apparently from 200 to 210 GPa
+                K=1 #fixed-guided boundary condition
+                P_cr_buckling_preload=np.pi**2*E*I/((K*tot_flex_length)**2)     #critical buckling load of the straight flexure in N, based on the Euler buckling formula
+                preload_force=P_cr_buckling_preload*(1+np.radians(angle)**2/8) #post buckling force relation according to Bazant
                 dict_flexure[(wid, tick, angle)] = {
                     'flex_length_initial': flex_length_deformed,
                     'init_angle': np.radians(angle),
@@ -36,8 +39,10 @@ def parameters():
                     'K_Theta': K_Theta,
                     'thickness': tick,
                     'width': wid,
+                    'preload_force': preload_force,
                     'pre_load_displacement':d,
                     'energy_total': stored_energy,
+                    'safety_factor': 1.5,
                     'E':E,
                     'A':A,
                     'I':I
