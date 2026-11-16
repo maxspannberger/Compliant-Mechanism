@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from tabulate import tabulate
 from parameters import parameters
 
 def energy_at_deflection(theta, values):
@@ -224,19 +225,24 @@ def plot_deflection_angle_over_time(
 
 if __name__ == '__main__':
     result = plot_deflection_angle_over_time(parameters())
+    result_rows = [
+        ['Deflection angle', f"{np.degrees(result['deflection_angle']):.2f} degrees"],
+        ['Pre load force', f"{result['preload_force']:.2f} N"],
+        ['Total force', f"{result['Force_total']:.2f} N"],
+        [
+            'Applied force',
+            f"{result['Force_total'] - result['preload_force']:.2f} N",
+        ],
+        [
+            'Average dtheta/dy',
+            f"{np.mean(result['dtheta_dy_over_time']):.2f} deg/mm",
+        ],
+    ]
     print(
-        '\n'
-        '+------------------------------------------------+\n'
-        f"| Best combination: {result['combination']}\n"
-        '+------------------------------------------------+\n'
-        '| Quantity              | Value                |\n'
-        '+------------------------------------------------+\n'
-        f"| Deflection angle      | "
-        f"{np.degrees(result['deflection_angle']):>8.2f} degrees      |\n"
-        f"| Pre load force        | {result['preload_force']:>8.2f} N            |\n"
-        f"| Total force           | {result['Force_total']:>8.2f} N            |\n"
-        f"| Applied Force         | {result['Force_total']-result['preload_force']:>8.2f} N            |\n"
-        f"| Average dtheta/dy     | "
-        f"{np.mean(result['dtheta_dy_over_time']):>8.2f} deg/mm       |\n"
-        '+------------------------------------------------+'
+        f"\nBest combination: {result['combination']}\n"
+        + tabulate(
+            result_rows,
+            headers=['Quantity', 'Value'],
+            tablefmt='fancy_grid',
+        )
     )
