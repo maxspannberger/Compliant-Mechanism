@@ -234,6 +234,14 @@ if __name__ == '__main__':
             f"{result['Force_total'] - result['preload_force']:.2f} N",
         ],
         [
+                    'Total Applied force per Leg',
+                    f"{(result['Force_total'] - result['preload_force'])*4:.2f} N",
+                ],
+        [
+            'Total vertical deflection',
+            f"{2 * np.max(result['vertical_displacement']) * 1000:.2f} mm",
+        ],
+        [
             'Average dtheta/dy',
             f"{np.mean(result['dtheta_dy_over_time']):.2f} deg/mm",
         ],
