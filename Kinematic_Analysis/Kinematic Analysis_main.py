@@ -38,9 +38,11 @@ def energy_at_deflection(theta, values):
     Force_bending = bending_energy / theta if theta != 0 else 0.0
     Force_total =   Force_bending + values['preload_force']
 
-    print(Force_axial, Force_bending, Force_total, axial_energy,axial_displacement,L_prime_initial,k_l)
+    total_energy = bending_energy
 
-    return axial_energy, bending_energy, axial_energy + bending_energy, Force_total
+    #print(Force_axial, Force_bending, Force_total, axial_energy,axial_displacement,L_prime_initial,k_l)
+
+    return axial_energy, bending_energy, total_energy, Force_total
 
 
 def find_deflection_angle(values, theta_limit=np.radians(50), samples=1000):
@@ -107,32 +109,9 @@ def find_perfect_combination(parameters_dict):
             }
     return best_combination
 
-def dtheta_dy(theta, values):
-    """Return the derivative of deflection angle with respect to vertical displacement."""
-    flex_length_initial = values['flex_length_initial']
-    gamma = values['gamma']
-
-    flex_length_deformed = flex_length_initial * (1 - np.cos(theta))
-    L_diagonal = flex_length_deformed - (1 - gamma) * flex_length_initial
-    u = L_diagonal * np.sin(theta)
-    L_prime_deformed = np.sqrt(
-        u ** 2 + ((gamma * 2 * flex_length_initial - flex_length_deformed) / 2) ** 2
-    )
-
-    dL_diagonal_dtheta = (
-        flex_length_initial * np.sin(theta) + L_diagonal * np.cos(theta)
-    )
-    du_dtheta = dL_diagonal_dtheta * np.sin(theta) + L_diagonal * np.cos(theta)
-    dL_prime_deformed_dtheta = (
-        (u * du_dtheta + (gamma * 2 * flex_length_initial - flex_length_deformed) / 2 *
-         (-flex_length_initial * np.sin(theta))) / L_prime_deformed
-    )
-
-    dtheta_dy_value = (
-        -1 / (flex_length_initial * np.sin(theta)) *
-        (dL_prime_deformed_dtheta / L_prime_deformed)
-    )
-    return dtheta_dy_value
+def dtheta_dy(theta, vertical_displacement):
+    """Return the local slope using the supplied angle and displacement units."""
+    return np.gradient(theta, vertical_displacement)
 
 
 def plot_deflection_angle_over_time(
@@ -165,12 +144,14 @@ def plot_deflection_angle_over_time(
     vertical_displacement = (
         preload_displacement + compression_displacement
     )
+    vertical_displacement_mm = vertical_displacement * 1000
     flex_length_deformed = flex_length - compression_displacement
     diagonal_length = (
         flex_length_deformed
         - (1 - values['gamma']) * flex_length
     )
     horizontal_displacement = diagonal_length * np.sin(compression_angle)
+    horizontal_displacement_mm = horizontal_displacement * 1000
     total_energy = np.array(
         [
             energy_at_deflection(angle, values)[2]
@@ -184,13 +165,10 @@ def plot_deflection_angle_over_time(
         ]
     )
     dtheta_dy_over_time = np.array(
-        [
-            dtheta_dy(angle, values) if angle != 0 else np.nan
-            for angle in compression_angle
-        ]
+        dtheta_dy(deflection_angle_degrees, vertical_displacement_mm)
     )
 
-    figure, axes = plt.subplots(2, 3, figsize=(16, 8), sharex=True)
+    figure, axes = plt.subplots(2, 3, figsize=(16, 8))
     axes[0, 0].plot(time, deflection_angle_degrees, linewidth=2)
     axes[0, 0].set_xlabel('Time (s)')
     axes[0, 0].set_ylabel('Deflection angle (degrees)')
@@ -203,15 +181,15 @@ def plot_deflection_angle_over_time(
     axes[0, 1].set_title('Total stored energy')
     axes[0, 1].grid(True)
 
-    axes[1, 0].plot(time, vertical_displacement, linewidth=2)
+    axes[1, 0].plot(time, vertical_displacement_mm, linewidth=2)
     axes[1, 0].set_xlabel('Time (s)')
-    axes[1, 0].set_ylabel('Vertical displacement (m)')
+    axes[1, 0].set_ylabel('Vertical displacement (mm)')
     axes[1, 0].set_title('Vertical compression')
     axes[1, 0].grid(True)
 
-    axes[1, 1].plot(time, horizontal_displacement, linewidth=2)
+    axes[1, 1].plot(time, horizontal_displacement_mm, linewidth=2)
     axes[1, 1].set_xlabel('Time (s)')
-    axes[1, 1].set_ylabel('Horizontal displacement (m)')
+    axes[1, 1].set_ylabel('Horizontal displacement (mm)')
     axes[1, 1].set_title('Horizontal displacement, u')
     axes[1, 1].grid(True)
 
@@ -221,10 +199,13 @@ def plot_deflection_angle_over_time(
     axes[0, 2].set_title('Total force')
     axes[0, 2].grid(True)
 
-    axes[1, 2].plot(time, dtheta_dy_over_time, linewidth=2)
-    axes[1, 2].set_xlabel('Time (s)')
-    axes[1, 2].set_ylabel('dtheta/dy (rad/m)')
-    axes[1, 2].set_title('Deflection angle sensitivity')
+    axes[1, 2].plot(
+        vertical_displacement_mm, deflection_angle_degrees, linewidth=2
+    )
+    axes[1, 2].set_xlim(0.0, vertical_displacement_mm[-1])
+    axes[1, 2].set_xlabel('Vertical displacement (mm)')
+    axes[1, 2].set_ylabel('Deflection angle (degrees)')
+    axes[1, 2].set_title('Deflection angle over vertical displacement')
     axes[1, 2].grid(True)
 
     figure.suptitle(f"Compression response: {best_combination['combination']}")
@@ -244,8 +225,17 @@ def plot_deflection_angle_over_time(
 if __name__ == '__main__':
     result = plot_deflection_angle_over_time(parameters())
     print(
-        f"Best combination: {result['combination']}, "
-        f"deflection angle: {np.degrees(result['deflection_angle']):.2f} degrees, "
-        f"Pre load Force: {result['preload_force']:.2f} N,"
-        f"Total Force: {result['Force_total']:.2f} N"
+        '\n'
+        '+------------------------------------------------+\n'
+        f"| Best combination: {result['combination']}\n"
+        '+------------------------------------------------+\n'
+        '| Quantity              | Value                |\n'
+        '+------------------------------------------------+\n'
+        f"| Deflection angle      | "
+        f"{np.degrees(result['deflection_angle']):>8.2f} degrees      |\n"
+        f"| Pre load force        | {result['preload_force']:>8.2f} N            |\n"
+        f"| Total force           | {result['Force_total']:>8.2f} N            |\n"
+        f"| Average dtheta/dy     | "
+        f"{np.mean(result['dtheta_dy_over_time']):>8.2f} deg/mm       |\n"
+        '+------------------------------------------------+'
     )
