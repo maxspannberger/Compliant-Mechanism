@@ -235,6 +235,7 @@ if __name__ == '__main__':
         f"{np.degrees(result['deflection_angle']):>8.2f} degrees      |\n"
         f"| Pre load force        | {result['preload_force']:>8.2f} N            |\n"
         f"| Total force           | {result['Force_total']:>8.2f} N            |\n"
+        f"| Applied Force         | {result['Force_total']-result['preload_force']:>8.2f} N            |\n"
         f"| Average dtheta/dy     | "
         f"{np.mean(result['dtheta_dy_over_time']):>8.2f} deg/mm       |\n"
         '+------------------------------------------------+'
