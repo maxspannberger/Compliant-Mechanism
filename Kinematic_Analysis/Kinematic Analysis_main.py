@@ -48,7 +48,7 @@ def energy_at_deflection(theta, values):
 
 def find_deflection_angle(values, theta_limit=np.radians(50), samples=1000):
     """Solve total strain energy(theta) = required energy."""
-    target_energy = values['energy_total']
+    target_energy = values['energy_total']/(values['amount_of_legs']*2)*values['safety_factor']  # energy per flexure, with 2 flexures per leg and 4 legs
     initial_angle = values['init_angle']
     theta_grid = np.linspace(0.0, theta_limit-initial_angle, samples + 1)
     energy_grid = np.array(
@@ -98,6 +98,7 @@ def find_perfect_combination(parameters_dict):
 
     for combination, values in parameters_dict.items():
         result = find_deflection_angle(values)
+        print(result)
         if result is None:
             continue
         residual = abs(result['energy_residual'])
@@ -243,6 +244,10 @@ if __name__ == '__main__':
         [
             'Total vertical deflection',
             f"{2 * np.max(result['vertical_displacement']) * 1000:.2f} mm",
+        ],
+        [
+            'Residual energy',
+            f"{result['energy_residual']:.6f} J",
         ],
         [
             'Average dtheta/dy',

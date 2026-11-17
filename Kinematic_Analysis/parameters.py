@@ -6,15 +6,17 @@ def parameters():
     tot_flex_length=0.09 #flexure length in m
     flex_length_initial=tot_flex_length/2 #initial flexure length in m
     m_2=0.05 #mass of the payload in kg, assumed for now
-    h=0.3 #height of the jump in m
-    g=9.81 #acceleration due to gravity in m/s^2
+    h=1 #height of the jump in m
+    g=3.73 #acceleration due to gravity in m/s^2 on Mars
     gamma=0.85 #fixed-guided boundary condition
     K_Theta=2.65    #fixed-guided boundary condition
     init_angle=[10,15,20,25] #assumed inital deflection of the flexure in degrees
     density=8000 #density of the flexure material in kg/m^3 - FIND THE VALUES FOR STEEL
+    amount_of_legs=4 #number of legs
+    safety_factor=2 #safety factor
 
-    thickness = [0.0005, 0.001, 0.0015] #thickness of the flexure in m
-    width = [0.005, 0.01, 0.015] #width of the flexure in m
+    thickness = [0.0001, 0.0002, 0.0003,0.0004] #thickness of the flexure in m
+    width = [0.005, 0.01, 0.015, 0.02, 0.025] #width of the flexure in m
 
     dict_flexure = {}
 
@@ -45,7 +47,9 @@ def parameters():
                     'safety_factor': 1.5,
                     'E':E,
                     'A':A,
-                    'I':I
+                    'I':I,
+                    'amount_of_legs': amount_of_legs,
+                    'safety_factor': safety_factor,
                 }
 
     return dict_flexure
