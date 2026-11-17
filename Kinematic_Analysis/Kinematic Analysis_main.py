@@ -226,6 +226,9 @@ def plot_deflection_angle_over_time(
 if __name__ == '__main__':
     result = plot_deflection_angle_over_time(parameters())
     result_rows = [
+        ['Flexure Width', f"{(result['combination'][0]*1000):.2f} mm"],
+        ['Flexure Thickness', f"{(result['combination'][1]*1000):.2f} mm"],
+        ['Starting Deflection angle', f"{result['combination'][2]:.2f} degrees"],
         ['Deflection angle', f"{np.degrees(result['deflection_angle']):.2f} degrees"],
         ['Pre load force', f"{result['preload_force']:.2f} N"],
         ['Total force', f"{result['Force_total']:.2f} N"],
@@ -246,8 +249,10 @@ if __name__ == '__main__':
             f"{np.mean(result['dtheta_dy_over_time']):.2f} deg/mm",
         ],
     ]
+    red = '\033[1;91m'
+    reset = '\033[0m'
     print(
-        f"\nBest combination: {result['combination']}\n"
+        f"\n{red}BEST COMBINATION{reset}\n"
         + tabulate(
             result_rows,
             headers=['Quantity', 'Value'],
