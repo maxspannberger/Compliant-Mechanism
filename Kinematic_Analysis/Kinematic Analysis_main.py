@@ -48,7 +48,7 @@ def energy_at_deflection(theta, values):
 
 def find_deflection_angle(values, theta_limit=np.radians(50), samples=1000):
     """Solve total strain energy(theta) = required energy."""
-    target_energy = values['energy_total']/(values['amount_of_legs']*2)*values['safety_factor']  # energy per flexure, with 2 flexures per leg and 4 legs
+    target_energy = values['energy_total']/(values['amount_of_legs']*4)*values['safety_factor']  # energy per flexure, with 2 flexures per leg and 4 legs
     initial_angle = values['init_angle']
     theta_grid = np.linspace(0.0, theta_limit-initial_angle, samples + 1)
     energy_grid = np.array(
@@ -107,6 +107,7 @@ def find_perfect_combination(parameters_dict):
             best_combination = {
                 'combination': combination,
                 'preload_force': values['preload_force'],
+                'amount_of_legs': values['amount_of_legs'],
                 **result,
             }
     return best_combination
@@ -232,15 +233,20 @@ if __name__ == '__main__':
         ['Starting Deflection angle', f"{result['combination'][2]:.2f} degrees"],
         ['Deflection angle', f"{np.degrees(result['deflection_angle']):.2f} degrees"],
         ['Pre load force', f"{result['preload_force']:.2f} N"],
-        ['Total force', f"{result['Force_total']:.2f} N"],
+        ['Total force per flexure', f"{result['Force_total']:.2f} N"],
         [
-            'Applied force',
+            'Applied force per flexure',
             f"{result['Force_total'] - result['preload_force']:.2f} N",
         ],
+        ['Total force per Leg', f"{result['Force_total']*4:.2f} N"],
         [
                     'Total Applied force per Leg',
                     f"{(result['Force_total'] - result['preload_force'])*4:.2f} N",
                 ],
+        [
+            f"Total applied force ({result['amount_of_legs']} legs)",
+            f"{((result['Force_total'] - result['preload_force']))*4 * result['amount_of_legs']:.2f} N",
+        ],
         [
             'Total vertical deflection',
             f"{2 * np.max(result['vertical_displacement']) * 1000:.2f} mm",
