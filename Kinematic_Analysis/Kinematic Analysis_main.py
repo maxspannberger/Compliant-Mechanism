@@ -98,7 +98,7 @@ def find_perfect_combination(parameters_dict):
 
     for combination, values in parameters_dict.items():
         result = find_deflection_angle(values)
-        print(result)
+        #print(result)
         if result is None:
             continue
         residual = abs(result['energy_residual'])
@@ -115,6 +115,29 @@ def find_perfect_combination(parameters_dict):
 def dtheta_dy(theta, vertical_displacement):
     """Return the local slope using the supplied angle and displacement units."""
     return np.gradient(theta, vertical_displacement)
+
+
+def maximum_flexure_stress(theta, values):
+    """Return the maximum surface stress in the flexure in Pa.
+
+    The returned stress combines the axial stress from the preload with the
+    bending stress produced by the flexure's rotational stiffness. The two
+    stresses are added conservatively at the most highly loaded surface.
+    """
+    flex_length = values['flex_length_initial']
+    gamma = values['gamma']
+    E = values['E']
+    I = values['I']
+    area = values['A']
+    thickness = values['thickness']
+
+    rotational_stiffness = 2 * gamma * values['K_Theta'] * E * I / flex_length
+    bending_moment = rotational_stiffness * np.asarray(theta)
+    axial_stress = abs(values['preload_force']) / area
+    bending_stress = (bending_moment) * (thickness / 2) / I
+    stress = axial_stress + bending_stress
+
+    return float(stress) if stress.ndim == 0 else stress
 
 
 def plot_deflection_angle_over_time(
@@ -170,8 +193,11 @@ def plot_deflection_angle_over_time(
     dtheta_dy_over_time = np.array(
         dtheta_dy(deflection_angle_degrees, vertical_displacement_mm)
     )
+    flexure_stress_over_time = maximum_flexure_stress(
+        compression_angle, values
+    )
 
-    figure, axes = plt.subplots(2, 3, figsize=(16, 8))
+    figure, axes = plt.subplots(3, 3, figsize=(16, 11))
     axes[0, 0].plot(time, deflection_angle_degrees, linewidth=2)
     axes[0, 0].set_xlabel('Time (s)')
     axes[0, 0].set_ylabel('Deflection angle (degrees)')
@@ -211,6 +237,17 @@ def plot_deflection_angle_over_time(
     axes[1, 2].set_title('Deflection angle over vertical displacement')
     axes[1, 2].grid(True)
 
+    axes[2, 0].plot(
+        time, flexure_stress_over_time / 1e6, linewidth=2
+    )
+    axes[2, 0].set_xlabel('Time (s)')
+    axes[2, 0].set_ylabel('Maximum stress (MPa)')
+    axes[2, 0].set_title('Maximum flexure stress')
+    axes[2, 0].grid(True)
+
+    axes[2, 1].axis('off')
+    axes[2, 2].axis('off')
+
     figure.suptitle(f"Compression response: {best_combination['combination']}")
     figure.tight_layout()
     plt.show()
@@ -222,6 +259,10 @@ def plot_deflection_angle_over_time(
     best_combination['total_energy_over_time'] = total_energy
     best_combination['Force_tot'] = Force_tot
     best_combination['dtheta_dy_over_time'] = dtheta_dy_over_time
+    best_combination['flexure_stress_over_time'] = flexure_stress_over_time
+    best_combination['maximum_flexure_stress'] = np.max(
+        flexure_stress_over_time
+    )
     return best_combination
 
 
@@ -234,6 +275,10 @@ if __name__ == '__main__':
         ['Deflection angle', f"{np.degrees(result['deflection_angle']):.2f} degrees"],
         ['Pre load force', f"{result['preload_force']:.2f} N"],
         ['Total force per flexure', f"{result['Force_total']:.2f} N"],
+        [
+            'Maximum flexure stress',
+            f"{result['maximum_flexure_stress'] / 1e6:.2f} MPa",
+        ],
         [
             'Applied force per flexure',
             f"{result['Force_total'] - result['preload_force']:.2f} N",

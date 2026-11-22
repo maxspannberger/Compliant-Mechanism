@@ -3,7 +3,7 @@ import numpy as np
 
 def parameters():
 
-    tot_flex_length=0.09 #flexure length in m
+    tot_flex_length=0.24 #flexure length in m
     flex_length_initial=tot_flex_length/2 #initial flexure length in m
     m_2=0.05 #mass of the payload in kg, assumed for now
     h=1 #height of the jump in m
@@ -16,7 +16,7 @@ def parameters():
     safety_factor=2 #safety factor
 
     thickness = [0.0001, 0.0002, 0.0003,0.0004] #thickness of the flexure in m
-    width = [0.005, 0.01, 0.015, 0.02, 0.025] #width of the flexure in m
+    width = [0.005, 0.01, 0.015, 0.02, 0.025] #width of the flexure in m --change to a maximum of 6mm probably
 
     dict_flexure = {}
 
